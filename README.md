@@ -1,4 +1,5 @@
 intermittent_stats
 ==================
 
-Gather statistics from tbpl build failures in bugzilla
+This script gathers statistics of tbpl build failures from bugzilla.mozilla.org
+for a given bugzilla ticket number.
