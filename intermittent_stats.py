@@ -32,7 +32,7 @@ branch = Counter()
 build = Counter()
 testgrp = Counter()
 date = time = []
-reobj = re.compile(r'^(.*) ([a-z0-9-]+) ([a-z]+) test ([A-Za-z0-9-]+) on ([0-9-]+) ([0-9:]+)$')
+reobj = re.compile(r'^(.*) ([a-z0-9-_]+) ([a-z]+) test ([A-Za-z0-9-]+) on ([0-9-]+) ([0-9:]+)$')
 
 connection = urllib2.urlopen(BUGZILLA_URL + str(bugID) + BUGZILLA_COMMENTS)
 jsonDict = json.loads(connection.read())
@@ -40,6 +40,7 @@ jsonDict = json.loads(connection.read())
 comments = jsonDict['bugs'][str(bugID)]['comments']
 for c in comments:
   if c['author'] == EMAIL_TBPL :
+    # TODO: read the line with the machine name as well?!
     line = re.split("\r?\n", c['text'])[2]
     match = reobj.match(line)
     if match:
