@@ -32,11 +32,11 @@ except ValueError:
 
 os = Counter()
 branch = Counter()
-build = Counter()
+btype = Counter()
 testgrp = Counter()
 date = time = []
 slaves = Counter()
-
+#                         OS   branch        btype         testgrp            date      time
 re_build = re.compile(r'^(.*) ([a-z0-9-_]+) ([a-z]+) test ([A-Za-z0-9-]+) on ([0-9-]+) ([0-9:]+)$')
 re_slave = re.compile(r'slave: (.*)')
 
@@ -52,13 +52,13 @@ for c in comments:
     if match:
       os[match.group(1)] += 1
       branch[match.group(2)] += 1
-      build[match.group(3)] += 1
+      btype[match.group(3)] += 1
       testgrp[match.group(4)] += 1
       # collect them, but not agregated yet
       date.append(match.group(5))
       time.append(match.group(6))
     else:
-      print "Failed to find build line in here: " + lines
+      print "Failed to find/parse build line in here: %s" % (lines)
     slave_line = lines[4]
     match = re_slave.match(slave_line)
     if not match:
@@ -67,11 +67,11 @@ for c in comments:
     if match:
       slaves[match.group(1)] += 1
     else:
-      print "Failed to find slave line in here: " + lines
+      print "Failed to find/parse slave line in here: %s" % (lines)
 
 
 printPrettyCounter(os, "OS's")
 printPrettyCounter(branch, "Branches")
-printPrettyCounter(build, "Build")
+printPrettyCounter(btype, "Build-Type")
 printPrettyCounter(testgrp, "Test Group")
 printPrettyCounter(slaves, "Slaves", MAX_SLAVES)
