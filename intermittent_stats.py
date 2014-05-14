@@ -37,8 +37,8 @@ testgrp = Counter()
 date = time = []
 slaves = Counter()
 
-reline3 = re.compile(r'^(.*) ([a-z0-9-_]+) ([a-z]+) test ([A-Za-z0-9-]+) on ([0-9-]+) ([0-9:]+)$')
-reline5 = re.compile(r'slave: (.*)')
+re_build = re.compile(r'^(.*) ([a-z0-9-_]+) ([a-z]+) test ([A-Za-z0-9-]+) on ([0-9-]+) ([0-9:]+)$')
+re_slave = re.compile(r'slave: (.*)')
 
 connection = urllib2.urlopen(BUGZILLA_URL + str(bugID) + BUGZILLA_COMMENTS)
 jsonDict = json.loads(connection.read())
@@ -47,8 +47,8 @@ comments = jsonDict['bugs'][str(bugID)]['comments']
 for c in comments:
   if c['author'] == EMAIL_TBPL :
     lines = re.split("\r?\n", c['text'])
-    line3 = lines[2]
-    match = reline3.match(line3)
+    buildline = lines[2]
+    match = re_build.match(buildline)
     if match:
       os[match.group(1)] += 1
       branch[match.group(2)] += 1
@@ -58,13 +58,16 @@ for c in comments:
       date.append(match.group(5))
       time.append(match.group(6))
     else:
-      print "non matching line 3: " + line3
-    line5 = lines[4]
-    match = reline5.match(line5)
+      print "Failed to find build line in here: " + lines
+    slave_line = lines[4]
+    match = re_slave.match(slave_line)
+    if not match:
+      slave_line = lines[3]
+      match = re_slave.match(slave_line)
     if match:
       slaves[match.group(1)] += 1
     else:
-      print "non matching line 5: " + line5
+      print "Failed to find slave line in here: " + lines
 
 
 printPrettyCounter(os, "OS's")
