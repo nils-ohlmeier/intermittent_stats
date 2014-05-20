@@ -4,7 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import urllib2, json, re, sys
+import urllib2, json, re, argparse, datetime
 from collections import Counter
 
 BUGZILLA_URL = "https://bugzilla.mozilla.org/rest.cgi/bug/"
@@ -21,14 +21,20 @@ def printPrettyCounter(counter, name, maxval=None):
   if maxval and len(counter.most_common()) > maxval:
     print "  + %d more" % (total - maxval)
 
-if len(sys.argv) < 2:
-  sys.exit('Usage: %s bugzilla-number' % sys.argv[0])
+parser = argparse.ArgumentParser(description="Collect TBPL build statistics from a Bugzilla ticket")
+parser.add_argument('bznumber', type=int,
+help='the bugzilla ticket number to pull from')
+parser.add_argument('-v', '--verbose', action="count", default=0,
+help="increase output verbosity")
+parser.add_argument('-d', '--days', action='store', type=int, default=0,
+help='how many days of history from today backwards are collected')
+parser.add_argument('-s', '--slaves', action='store', type=int,
+default=MAX_SLAVES, help="maximum number of slave entries to print")
+args = parser.parse_args()
 
-bugID = None
-try:
-  bugID = int(sys.argv[1])
-except ValueError:
-  sys.exit('Usage: %s bugzilla-number' % sys.argv[0]);
+bugID = args.bznumber
+datefrom = datetime.datetime.today() - datetime.timedelta(days=args.days)
+verbose = args.verbose
 
 os = Counter()
 branch = Counter()
@@ -46,7 +52,14 @@ jsonDict = json.loads(connection.read())
 comments = jsonDict['bugs'][str(bugID)]['comments']
 for c in comments:
   if c['author'] == EMAIL_TBPL :
+    creation = datetime.datetime.strptime(c['creation_time'], "%Y-%m-%dT%H:%M:%SZ")
+    if creation < datefrom:
+      if (verbose > 0):
+        print "Ignoring entry from %s" % (creation)
+      continue
     lines = re.split("\r?\n", c['text'])
+    if (verbose > 2):
+      print lines
     buildline = lines[2]
     match = re_build.match(buildline)
     if match:
@@ -74,4 +87,4 @@ printPrettyCounter(os, "OS's")
 printPrettyCounter(branch, "Branches")
 printPrettyCounter(btype, "Build-Type")
 printPrettyCounter(testgrp, "Test Group")
-printPrettyCounter(slaves, "Slaves", MAX_SLAVES)
+printPrettyCounter(slaves, "Slaves", args.slaves)
