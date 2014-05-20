@@ -33,7 +33,9 @@ default=MAX_SLAVES, help="maximum number of slave entries to print")
 args = parser.parse_args()
 
 bugID = args.bznumber
-datefrom = datetime.datetime.today() - datetime.timedelta(days=args.days)
+datefrom = None
+if (args.days > 0):
+  datefrom = datetime.datetime.today() - datetime.timedelta(days=args.days)
 verbose = args.verbose
 
 os = Counter()
@@ -53,7 +55,7 @@ comments = jsonDict['bugs'][str(bugID)]['comments']
 for c in comments:
   if c['author'] == EMAIL_TBPL :
     creation = datetime.datetime.strptime(c['creation_time'], "%Y-%m-%dT%H:%M:%SZ")
-    if creation < datefrom:
+    if datefrom and (creation < datefrom):
       if (verbose > 0):
         print "Ignoring entry from %s" % (creation)
       continue
