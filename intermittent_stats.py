@@ -4,7 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import urllib2, json, re, argparse, datetime, urllib, gzip
+import urllib2, json, re, argparse, datetime, urllib, gzip, os
 from StringIO import StringIO
 from collections import Counter
 
@@ -42,7 +42,7 @@ if (args.days > 0):
 verbose = args.verbose
 download = args.download
 
-os = Counter()
+osc = Counter()
 branch = Counter()
 btype = Counter()
 testgrp = Counter()
@@ -57,14 +57,16 @@ connection = urllib2.urlopen(BUGZILLA_URL + str(bugID) + BUGZILLA_COMMENTS)
 jsonDict = json.loads(connection.read())
 
 comments = jsonDict['bugs'][str(bugID)]['comments']
+commentnum = 0
 for c in comments:
+  commentnum += 1
   if c['author'] == EMAIL_TBPL :
     creation = datetime.datetime.strptime(c['creation_time'], "%Y-%m-%dT%H:%M:%SZ")
     if datefrom and (creation < datefrom):
       if (verbose > 0):
         print "Ignoring entry from %s" % (creation)
       continue
-    cid = c['id']
+    #cid = c['id']
     lines = re.split("\r?\n", c['text'])
     if (verbose > 2):
       print lines
@@ -73,7 +75,8 @@ for c in comments:
       match = re_log.match(logline)
       if match:
         log_url = match.group(1)
-        #print "Found link to log: %s" % (log_url)
+        if (verbose > 1):
+          print "Found link to log: %s" % (log_url)
         log_resp = urllib2.urlopen(log_url)
         data = ""
         if log_resp.info().get('Content-Encoding') == 'gzip':
@@ -83,17 +86,19 @@ for c in comments:
         else:
           data = log_resp.read()
         if data != "Unknown run ID.":
-          re_full = re.compile(r'.*(http://ftp.mozilla.org[A-Za-z0-9/.\-_]+).*')
+          re_full = re.compile(r'.*(http://ftp.mozilla.org[A-Za-z0-9/.\-_@]+).*')
           match = re_full.findall(data)
           if len(match) == 1:
             url = match[0]
-            filename = str(cid) + ".gz"
+            filename = str(bugID) + "-" + str(commentnum) + ".gz"
             print "Downloading full log (%s): %s" % (filename, url)
-            urllib.urlretrieve(url, filename)
+            (filename, headers) = urllib.urlretrieve(url, filename)
+            if headers.get('Content-Encoding') != 'x-gzip':
+              os.remove(filename)
     buildline = lines[2]
     match = re_build.match(buildline)
     if match:
-      os[match.group(1)] += 1
+      osc[match.group(1)] += 1
       branch[match.group(2)] += 1
       btype[match.group(3)] += 1
       testgrp[match.group(4)] += 1
@@ -113,7 +118,7 @@ for c in comments:
       print "Failed to find/parse slave line in here: %s" % (lines)
 
 
-printPrettyCounter(os, "OS's")
+printPrettyCounter(osc, "OS's")
 printPrettyCounter(branch, "Branches")
 printPrettyCounter(btype, "Build-Type")
 printPrettyCounter(testgrp, "Test Group")
