@@ -53,6 +53,102 @@ re_build = re.compile(r'^(.*) ([a-z0-9-_]+) ([a-z]+) test ([A-Za-z0-9-]+) on ([0
 re_slave = re.compile(r'slave: (.*)')
 re_log = re.compile(r'^(https://tbpl.mozilla.org/php/getParsedLog.php.*)')
 
+def parseOldTbplMessage(lines):
+  if download:
+    logline = lines[1]
+    match = re_log.match(logline)
+    if match:
+      log_url = match.group(1)
+      if (verbose > 1):
+        print "Found link to log: %s" % (log_url)
+      log_resp = urllib2.urlopen(log_url)
+      data = ""
+      if log_resp.info().get('Content-Encoding') == 'gzip':
+        buf = StringIO(log_resp.read())
+        f = gzip.GzipFile(fileobj=buf)
+        data = f.read()
+      else:
+        data = log_resp.read()
+      if data != "Unknown run ID.":
+        re_full = re.compile(r'.*(http://ftp.mozilla.org[A-Za-z0-9/.\-_@]+).*')
+        match = re_full.findall(data)
+        if len(match) == 1:
+          url = match[0]
+          filename = str(bugID) + "-" + str(commentnum) + ".gz"
+          print "Downloading full log (%s): %s" % (filename, url)
+          (filename, headers) = urllib.urlretrieve(url, filename)
+          if headers.get('Content-Encoding') != 'x-gzip':
+            os.remove(filename)
+  buildline = lines[2]
+  match = re_build.match(buildline)
+  if match:
+    osc[match.group(1)] += 1
+    branch[match.group(2)] += 1
+    btype[match.group(3)] += 1
+    testgrp[match.group(4)] += 1
+    # collect them, but not agregated yet
+    date.append(match.group(5))
+    time.append(match.group(6))
+  else:
+    print "Failed to find/parse build line in here: %s" % (lines)
+  slave_line = lines[4]
+  match = re_slave.match(slave_line)
+  if not match:
+    slave_line = lines[3]
+    match = re_slave.match(slave_line)
+  if match:
+    slaves[match.group(1)] += 1
+  else:
+    print "Failed to find/parse slave line in here: %s" % (lines)
+
+def handleLogLine(value):
+  print "Implement log handler"
+
+def handleRepLine(value):
+  branch[value] += 1
+
+def handleStartTime(value):
+  print "Implement start time handler"
+
+def handleWho(value):
+  print "Implement who handler"
+
+def handleMachineLine(value):
+  slaves[value] += 1
+
+re_buildname = re.compile(r'^(.*) ([a-z0-9-_]+) ([a-z]+) test ([A-Za-z0-9-]+)$')
+def handleBuildLine(value):
+  match = re_buildname.match(value)
+  if match:
+    osc[match.group(1)] += 1
+    branch[match.group(2)] += 1
+    btype[match.group(3)] += 1
+    testgrp[match.group(4)] += 1
+
+def handleRevision(value):
+  print "Implement revision handler"
+
+TreeherderNames = {
+  'log': handleLogLine,
+  'repository': handleRepLine,
+  'start_time': handleStartTime,
+  'who': handleWho,
+  'machine': handleMachineLine,
+  'buildname': handleBuildLine,
+  'revision': handleRevision
+}
+
+def parseNewTreeherderMessage(lines):
+  print "Parser for Treeherder needs to be implemented"
+  for line in lines:
+    if len(line) == 0:
+      break
+    name_value = line.split(':')
+    name = name_value[0]
+    value = name_value[1]
+    if name in TreeherderNames.keys():
+      TreeherderNames[name](value.strip())
+
 connection = urllib2.urlopen(BUGZILLA_URL + str(bugID) + BUGZILLA_COMMENTS)
 jsonDict = json.loads(connection.read())
 
@@ -70,52 +166,8 @@ for c in comments:
     lines = re.split("\r?\n", c['text'])
     if (verbose > 2):
       print lines
-    if download:
-      logline = lines[1]
-      match = re_log.match(logline)
-      if match:
-        log_url = match.group(1)
-        if (verbose > 1):
-          print "Found link to log: %s" % (log_url)
-        log_resp = urllib2.urlopen(log_url)
-        data = ""
-        if log_resp.info().get('Content-Encoding') == 'gzip':
-          buf = StringIO(log_resp.read())
-          f = gzip.GzipFile(fileobj=buf)
-          data = f.read()
-        else:
-          data = log_resp.read()
-        if data != "Unknown run ID.":
-          re_full = re.compile(r'.*(http://ftp.mozilla.org[A-Za-z0-9/.\-_@]+).*')
-          match = re_full.findall(data)
-          if len(match) == 1:
-            url = match[0]
-            filename = str(bugID) + "-" + str(commentnum) + ".gz"
-            print "Downloading full log (%s): %s" % (filename, url)
-            (filename, headers) = urllib.urlretrieve(url, filename)
-            if headers.get('Content-Encoding') != 'x-gzip':
-              os.remove(filename)
-    buildline = lines[2]
-    match = re_build.match(buildline)
-    if match:
-      osc[match.group(1)] += 1
-      branch[match.group(2)] += 1
-      btype[match.group(3)] += 1
-      testgrp[match.group(4)] += 1
-      # collect them, but not agregated yet
-      date.append(match.group(5))
-      time.append(match.group(6))
-    else:
-      print "Failed to find/parse build line in here: %s" % (lines)
-    slave_line = lines[4]
-    match = re_slave.match(slave_line)
-    if not match:
-      slave_line = lines[3]
-      match = re_slave.match(slave_line)
-    if match:
-      slaves[match.group(1)] += 1
-    else:
-      print "Failed to find/parse slave line in here: %s" % (lines)
+    parseNewTreeherderMessage(lines)
+    #parseOldTbplMessage(lines)
 
 
 printPrettyCounter(osc, "OS's")
